@@ -238,7 +238,7 @@ lnk project add '!AGENTS.md'              # then exclude it in one project
 lnk project untrack --global AGENTS.md    # remove the global pattern
 ```
 
-Matched files are stored under `projects/<normalized-origin>/<path>/` in your lnk repo (derived from the project's origin remote) and symlinked back into the project. Existing files at symlink locations are backed up to `<path>.lnk-backup` during restore, just like host/common scope restores.
+Matched files are stored under `projects/<normalized-origin>/<path>/` in your lnk repo (derived from the project's origin remote) and symlinked back into the project. Existing files at symlink locations are backed up to `<path>.lnk-backup` during restore, just like host/common scope restores. The normalized origin is also the project's identity in lnk, so untrack a project before changing its remote (see [Notes and edge cases](#notes-and-edge-cases)).
 
 Project checkouts are tracked in a machine-local `.lnkprojectcache` file inside the lnk repo. The cache is updated automatically on `project push` and `project sync`, and is used by `project sync --all` and `lnk doctor` to find local projects without scanning `$HOME`. It is gitignored so absolute paths are not synced across machines.
 
@@ -252,6 +252,7 @@ Project checkouts are tracked in a machine-local `.lnkprojectcache` file inside 
 - **The lnk repo protects itself.** Project commands refuse to run inside the lnk repository (or any clone of it) to prevent storing it inside its own storage.
 - **Reconciliation is explicit for deletions.** `project sync` reports stored files whose live copies were deleted; they are only removed from storage with `--prune-deletions`.
 - **`.lnkprojectcache` is machine-local.** The cache is maintained automatically by `project push` and `project sync`. Use `project cache --scan <dir>` to populate or repair it on a new machine or after moving checkouts.
+- **Project identity comes from `origin`.** Storage lives at `projects/<normalized-origin>/`, so switching remotes, renaming the repo, or moving a checkout that has no `origin` (its id is hashed from the local path) orphans the old storage directory. `project remove`, `project forget`, and `project sync` then report `no stored files for this project`, while the live symlinks still point at the old path and `lnk doctor` reports the leftovers as orphaned project storage. Untrack before changing the remote with `lnk project remove` (or `forget`); if the remote has already moved, point `origin` back at the old URL, run `lnk project remove`, then set the new URL and `lnk project push` to re-adopt.
 
 ### Hooks
 
