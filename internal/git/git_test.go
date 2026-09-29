@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/git"
-	"github.com/polymorcodeus/lnk/v2/internal/testhelpers"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/git"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/testhelpers"
 )
 
 // ---------- helpers ----------

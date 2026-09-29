@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/fs"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/fs"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 func TestFileSystem_ValidateFileInfoForAdd(t *testing.T) {

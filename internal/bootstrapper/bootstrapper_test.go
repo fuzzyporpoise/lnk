@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/bootstrapper"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/bootstrapper"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 // --- stubs ---

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/cmd"
-	"github.com/polymorcodeus/lnk/v2/service"
+	"go.fuzzyporpoise.dev/lnk/v2/cmd"
+	"go.fuzzyporpoise.dev/lnk/v2/service"
 )
 
 func TestPrintRestore(t *testing.T) {

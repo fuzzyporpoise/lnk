@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/testhelpers"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/testhelpers"
 )
 
 // TestIntegration_FormatUpgrade simulates the full round-trip format migration:

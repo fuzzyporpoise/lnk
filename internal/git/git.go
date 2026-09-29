@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 // Sentinel errors for git operations.

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/tracker"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/tracker"
 )
 
 func TestTracker_LnkFileName(t *testing.T) {

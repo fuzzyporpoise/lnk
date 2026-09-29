@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	bootpkg "github.com/polymorcodeus/lnk/v2/internal/bootstrapper"
+	bootpkg "go.fuzzyporpoise.dev/lnk/v2/internal/bootstrapper"
 )
 
 // Bootstrap runs bootstrap.sh explicitly.

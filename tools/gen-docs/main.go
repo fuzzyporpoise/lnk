@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra/doc"
 
-	"github.com/polymorcodeus/lnk/v2/cmd"
+	"go.fuzzyporpoise.dev/lnk/v2/cmd"
 )
 
 func main() {

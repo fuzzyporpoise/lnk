@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/testhelpers"
-	"github.com/polymorcodeus/lnk/v2/service"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/testhelpers"
+	"go.fuzzyporpoise.dev/lnk/v2/service"
 )
 
 // TestIntegration_ScopeMigration simulates a user moving tracked files between

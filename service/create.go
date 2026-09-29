@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/polymorcodeus/lnk/v2/internal/filemanager"
-	"github.com/polymorcodeus/lnk/v2/internal/fs"
-	"github.com/polymorcodeus/lnk/v2/internal/gitboundary"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/filemanager"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/fs"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/gitboundary"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 const lnkKeepFileName = ".lnkkeep"

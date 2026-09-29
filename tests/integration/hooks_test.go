@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/hooks"
-	"github.com/polymorcodeus/lnk/v2/internal/testhelpers"
-	"github.com/polymorcodeus/lnk/v2/service"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/hooks"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/testhelpers"
+	"go.fuzzyporpoise.dev/lnk/v2/service"
 )
 
 // TestIntegration_HookPostCheckout_RestoresMissingSymlinks verifies that the

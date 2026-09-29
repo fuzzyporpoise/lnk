@@ -1,4 +1,4 @@
-module github.com/polymorcodeus/lnk/v2
+module go.fuzzyporpoise.dev/lnk/v2
 
 go 1.26
 

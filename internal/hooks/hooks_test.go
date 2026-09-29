@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/hooks"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/hooks"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 func TestInstallLnkRepo_WritesPostMergeHook(t *testing.T) {

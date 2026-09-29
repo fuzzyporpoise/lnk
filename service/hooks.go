@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/polymorcodeus/lnk/v2/internal/gitboundary"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/gitboundary"
 )
 
 // hookTimeout limits how long a hook body may block the git operation.

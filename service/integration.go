@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/polymorcodeus/lnk/v2/internal/gitboundary"
-	"github.com/polymorcodeus/lnk/v2/internal/resolver"
-	"github.com/polymorcodeus/lnk/v2/internal/scope"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/gitboundary"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/resolver"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/scope"
 )
 
 // DetectProjectScope checks if dir (or the current working directory when dir

@@ -11,12 +11,12 @@ import (
 	"slices"
 	"strings"
 
-	filemgr "github.com/polymorcodeus/lnk/v2/internal/filemanager"
-	fspkg "github.com/polymorcodeus/lnk/v2/internal/fs"
-	gitpkg "github.com/polymorcodeus/lnk/v2/internal/git"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
-	"github.com/polymorcodeus/lnk/v2/internal/scope"
-	"github.com/polymorcodeus/lnk/v2/internal/tracker"
+	filemgr "go.fuzzyporpoise.dev/lnk/v2/internal/filemanager"
+	fspkg "go.fuzzyporpoise.dev/lnk/v2/internal/fs"
+	gitpkg "go.fuzzyporpoise.dev/lnk/v2/internal/git"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/scope"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/tracker"
 )
 
 const (
