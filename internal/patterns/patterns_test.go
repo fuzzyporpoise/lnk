@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/patterns"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/patterns"
 )
 
 func TestLoad_MissingFile(t *testing.T) {

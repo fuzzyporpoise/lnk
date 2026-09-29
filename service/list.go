@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
-	"github.com/polymorcodeus/lnk/v2/internal/tracker"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/tracker"
 )
 
 // List returns tracked items for common, one host, or all storage scopes.

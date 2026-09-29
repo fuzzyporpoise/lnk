@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/testhelpers"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/testhelpers"
 )
 
 // ---------- Move tests ----------

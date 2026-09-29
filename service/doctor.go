@@ -10,10 +10,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/polymorcodeus/lnk/v2/internal/fs"
-	"github.com/polymorcodeus/lnk/v2/internal/gitboundary"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
-	"github.com/polymorcodeus/lnk/v2/internal/tracker"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/fs"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/gitboundary"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/tracker"
 )
 
 // ScopeResult captures doctor findings for one profile or storage scope.

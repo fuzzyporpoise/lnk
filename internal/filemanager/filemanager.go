@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 type fileSystem interface {

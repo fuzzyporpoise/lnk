@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/polymorcodeus/lnk/v2/internal/filemanager"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
-	"github.com/polymorcodeus/lnk/v2/internal/tracker"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/filemanager"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/tracker"
 )
 
 // Remove stops managing a path and restores it to the current machine.

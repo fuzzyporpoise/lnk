@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
-	"github.com/polymorcodeus/lnk/v2/internal/testhelpers"
-	"github.com/polymorcodeus/lnk/v2/service"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/testhelpers"
+	"go.fuzzyporpoise.dev/lnk/v2/service"
 )
 
 // ---------- Init tests ----------

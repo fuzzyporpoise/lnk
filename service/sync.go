@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	gitpkg "github.com/polymorcodeus/lnk/v2/internal/git"
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	gitpkg "go.fuzzyporpoise.dev/lnk/v2/internal/git"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 // Commit stages all repo changes and creates a commit.

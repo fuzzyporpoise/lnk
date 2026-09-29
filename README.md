@@ -36,7 +36,7 @@ curl -sSL https://raw.githubusercontent.com/polymorcodeus/lnk/main/install.sh | 
 Or grab a binary from [releases](https://github.com/polymorcodeus/lnk/releases), or build from source:
 
 ```bash
-go install github.com/polymorcodeus/lnk/v2@latest
+go install go.fuzzyporpoise.dev/lnk/v2@latest
 ```
 
 *NOTE:*

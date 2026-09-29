@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/scope"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/scope"
 )
 
 func TestHomeRelativeResolver_ToStorage(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 type commandRunner func(ctx context.Context, name string, arg ...string) *exec.Cmd

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/gitboundary"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/gitboundary"
 )
 
 func initGitRepo(t *testing.T, dir string) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/polymorcodeus/lnk/v2/internal/lnkerror"
+	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
 func TestSentinels(t *testing.T) {
