@@ -902,8 +902,8 @@ type ProjectSyncAllResult struct {
 }
 
 // ProjectSyncAll reconciles every stored project that is marked available in
-// the machine-local .lnkprojectcache. Projects marked not-downloaded or
-// missing, or projects with no cache entry, are reported in Unavailable.
+// the machine-local project registry. Projects marked not-downloaded or
+// missing, or projects with no registry entry, are reported in Unavailable.
 // Errors from individual projects are joined and returned alongside the
 // partial result.
 func (ps *ProjectService) ProjectSyncAll(ctx context.Context, dryRun, pruneDeletions, force bool) (ProjectSyncAllResult, error) {

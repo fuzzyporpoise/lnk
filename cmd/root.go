@@ -463,7 +463,7 @@ func newProjectSyncCmd(repoFlag *string) *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview reconciliation without changing files")
 	cmd.Flags().BoolVar(&pruneDeletions, "prune-deletions", false, "delete stored files whose live copies were deleted")
 	cmd.Flags().BoolVar(&force, "force", false, "also manage files tracked by the project's own git")
-	cmd.Flags().BoolVar(&all, "all", false, "reconcile every stored project using .lnkprojectcache")
+	cmd.Flags().BoolVar(&all, "all", false, "reconcile every stored project using the local project registry")
 	return cmd
 }
 
@@ -473,7 +473,7 @@ func newProjectCacheCmd(repoFlag *string) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cache --scan path [--scan path]...",
-		Short: "Discover local project checkouts and update .lnkprojectcache",
+		Short: "Discover local project checkouts and update the local project registry",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ps := service.NewProjectService(svc(repoFlag))
 			result, err := ps.ProjectCacheDiscover(cmd.Context(), scanRoots)

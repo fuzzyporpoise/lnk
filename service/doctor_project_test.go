@@ -36,7 +36,7 @@ func TestDoctor_ProjectIssues_OrphanedStorage(t *testing.T) {
 	if !report.HasIssues() {
 		t.Fatal("expected doctor to report issues")
 	}
-	if !hasProjectIssue(report.ProjectIssues, "github.com/alice/orphaned", ".lnkprojectcache") {
+	if !hasProjectIssue(report.ProjectIssues, "github.com/alice/orphaned", "project registry") {
 		t.Errorf("ProjectIssues = %v, expected cache issue for orphaned storage", report.ProjectIssues)
 	}
 	_ = home
@@ -148,7 +148,7 @@ func TestDoctor_ProjectIssues_CacheMissing(t *testing.T) {
 		t.Fatalf("push: %v", err)
 	}
 	// ProjectPush records the cache; clear it to verify the doctor warning.
-	if err := os.Remove(filepath.Join(svc.RepoPath(), ".lnkprojectcache")); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(service.RegistryPath()); err != nil && !os.IsNotExist(err) {
 		t.Fatalf("clear cache: %v", err)
 	}
 
@@ -157,7 +157,7 @@ func TestDoctor_ProjectIssues_CacheMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Doctor: %v", err)
 	}
-	if !hasProjectIssue(report.ProjectIssues, "github.com/alice/myapp", ".lnkprojectcache") {
+	if !hasProjectIssue(report.ProjectIssues, "github.com/alice/myapp", "project registry") {
 		t.Errorf("expected cache issue, got %v", report.ProjectIssues)
 	}
 
@@ -169,7 +169,7 @@ func TestDoctor_ProjectIssues_CacheMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Doctor after cache repair: %v", err)
 	}
-	if hasProjectIssue(report.ProjectIssues, "github.com/alice/myapp", ".lnkprojectcache") {
+	if hasProjectIssue(report.ProjectIssues, "github.com/alice/myapp", "project registry") {
 		t.Errorf("expected cache issue to be repaired, got %v", report.ProjectIssues)
 	}
 }

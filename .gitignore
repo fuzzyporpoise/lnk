@@ -13,6 +13,3 @@ coverage.html
 # Go workspace
 go.work
 go.work.sum
-
-# Machine-local project checkout cache
-.lnkprojectcache

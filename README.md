@@ -176,7 +176,7 @@ lnk doctor --fix --prune-empty            # also remove empty host scopes and pr
 lnk doctor --all                          # check all scopes
 ```
 
-`lnk doctor` checks project scope as well as host/common scope: it reports orphaned project storage, broken project symlinks, and missing project checkouts using the machine-local `.lnkprojectcache`. Project issues are listed with severity and a suggested fix.
+`lnk doctor` checks project scope as well as host/common scope: it reports orphaned project storage, broken project symlinks, and missing project checkouts using the machine-local project registry. Project issues are listed with severity and a suggested fix.
 
 When restoring symlinks, if a real file exists at the target location (not a symlink), it will be renamed to `<path>.lnk-backup` to preserve your data before the symlink is created. Check for `.lnk-backup` files after running `restore`, `update`, or `doctor` if you expect them. The git hook path (`lnk hooks run ...`) is collision-safe and does not create `.lnk-backup` files; it reports collisions to stderr and leaves the real file in place.
 
@@ -217,7 +217,7 @@ lnk project push                          # move matches to lnk storage and syml
 lnk project sync                          # reconcile patterns, live files, and storage
 lnk project sync --all                    # reconcile every stored project
 lnk project sync --prune-deletions        # also drop storage for files deleted locally
-lnk project cache --scan ~/code           # discover local checkouts and update .lnkprojectcache
+lnk project cache --scan ~/code           # discover local checkouts and update the project registry
 lnk project restore                       # recreate symlinks from storage
 lnk project restore --dry-run             # preview what would be restored
 lnk project pull                          # pull lnk repo and restore
@@ -240,7 +240,7 @@ lnk project untrack --global AGENTS.md    # remove the global pattern
 
 Matched files are stored under `projects/<normalized-origin>/<path>/` in your lnk repo (derived from the project's origin remote) and symlinked back into the project. Existing files at symlink locations are backed up to `<path>.lnk-backup` during restore, just like host/common scope restores. The normalized origin is also the project's identity in lnk, so untrack a project before changing its remote (see [Notes and edge cases](#notes-and-edge-cases)).
 
-Project checkouts are tracked in a machine-local `.lnkprojectcache` file inside the lnk repo. The cache is updated automatically on `project push` and `project sync`, and is used by `project sync --all` and `lnk doctor` to find local projects without scanning `$HOME`. It is gitignored so absolute paths are not synced across machines.
+Project checkouts are tracked in a machine-local registry at `$XDG_CACHE_HOME/lnk/registry.json`, falling back to `~/.cache/lnk/registry.json` and overridable with `LNK_REGISTRY`. The registry is updated automatically on `project push` and `project sync`, and is used by `project sync --all` and `lnk doctor` to find local projects without scanning `$HOME`. It lives outside the lnk repo so moving or renaming the repo does not orphan the mapping.
 
 `lnk update` and `lnk restore` automatically detect project scope when they run inside a git repo that contains a `.lnkinclude` file. The project scope is restored alongside the common and host scopes, and a `(project scope: <id>)` message is printed to stderr. Use the global `--no-project` flag to skip automatic detection.
 
@@ -251,7 +251,7 @@ Project checkouts are tracked in a machine-local `.lnkprojectcache` file inside 
 - **Files tracked by the project's own git are left alone.** If a match is committed upstream (a typical `AGENTS.md`), push/sync skip it with a warning to avoid replacing a committed file with a machine-local symlink; use `--force` to override.
 - **The lnk repo protects itself.** Project commands refuse to run inside the lnk repository (or any clone of it) to prevent storing it inside its own storage.
 - **Reconciliation is explicit for deletions.** `project sync` reports stored files whose live copies were deleted; they are only removed from storage with `--prune-deletions`.
-- **`.lnkprojectcache` is machine-local.** The cache is maintained automatically by `project push` and `project sync`. Use `project cache --scan <dir>` to populate or repair it on a new machine or after moving checkouts.
+- **The project registry is machine-local.** It is maintained automatically by `project push` and `project sync`, lives at `$XDG_CACHE_HOME/lnk/registry.json` (falling back to `~/.cache/lnk/registry.json`; override with `LNK_REGISTRY`), and is never synced. Use `project cache --scan <dir>` to populate or repair it on a new machine or after moving checkouts.
 - **Project identity comes from `origin`.** Storage lives at `projects/<normalized-origin>/`, so switching remotes, renaming the repo, or moving a checkout that has no `origin` (its id is hashed from the local path) orphans the old storage directory. `project remove`, `project forget`, and `project sync` then report `no stored files for this project`, while the live symlinks still point at the old path and `lnk doctor` reports the leftovers as orphaned project storage. Untrack before changing the remote with `lnk project remove` (or `forget`); if the remote has already moved, point `origin` back at the old URL, run `lnk project remove`, then set the new URL and `lnk project push` to re-adopt.
 
 ### Hooks
@@ -306,7 +306,7 @@ man man/lnk-project-push.1                # read a generated page
 | `project untrack [--keep] <pattern>` | Remove a pattern from the project's `.lnkinclude`, restoring its files unless `--keep` |
 | `project push [--force]` | Move matching project files to lnk storage |
 | `project sync [--all] [--dry-run] [--prune-deletions] [--force]` | Reconcile patterns, live files, and storage |
-| `project cache --scan <dir>` | Discover local checkouts and update `.lnkprojectcache` |
+| `project cache --scan <dir>` | Discover local checkouts and update the project registry |
 | `project restore [--dry-run] [--force]` | Recreate project symlinks from storage |
 | `project pull [--force]` | Pull lnk repo and restore project symlinks |
 | `project remove` | Stop managing the project: restore all files and delete storage |

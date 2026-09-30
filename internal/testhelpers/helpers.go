@@ -54,6 +54,8 @@ func TestHome(t *testing.T) (svc *service.Service, home string) {
 	home = t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", "") // ensure default XDG path is used
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	t.Setenv("LNK_REGISTRY", "") // ignore any developer override
 
 	repoPath := filepath.Join(home, ".config", "lnk")
 	svc = service.New(repoPath)
