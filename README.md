@@ -6,7 +6,7 @@
 
 # lnk
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/polymorcodeus/lnk)](https://go.dev/) [![License](https://img.shields.io/github/license/polymorcodeus/lnk)](./LICENSE) [![Build Status](https://img.shields.io/github/actions/workflow/status/polymorcodeus/lnk/ci.yml?branch=main)](https://github.com/polymorcodeus/lnk/actions)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/fuzzyporpoise/lnk)](https://go.dev/) [![License](https://img.shields.io/github/license/fuzzyporpoise/lnk)](./LICENSE) [![Build Status](https://img.shields.io/github/actions/workflow/status/fuzzyporpoise/lnk/ci.yml?branch=main)](https://github.com/fuzzyporpoise/lnk/actions)
 
 **Lightweight git-native dotfiles management.**
 
@@ -30,10 +30,10 @@ lnk update                                     # pull and restore symlinks
 ### Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/polymorcodeus/lnk/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/fuzzyporpoise/lnk/main/install.sh | bash
 ```
 
-Or grab a binary from [releases](https://github.com/polymorcodeus/lnk/releases), or build from source:
+Or grab a binary from [releases](https://github.com/fuzzyporpoise/lnk/releases), or build from source:
 
 ```bash
 go install go.fuzzyporpoise.dev/lnk/v2@latest
@@ -333,15 +333,15 @@ The idea of a project scope was born out of seeing [claytercek/offstage](https:/
 ## Contributing
 
 ```bash
-git clone https://github.com/polymorcodeus/lnk.git
+git clone https://github.com/fuzzyporpoise/lnk.git
 cd lnk
 make check    # fmt, vet, lint, test
 ```
 
 ## Contributors
 
-<a href="https://github.com/polymorcodeus/lnk/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=polymorcodeus/lnk" />
+<a href="https://github.com/fuzzyporpoise/lnk/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=fuzzyporpoise/lnk" />
 </a>
 
 ## License
