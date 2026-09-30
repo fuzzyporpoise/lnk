@@ -81,7 +81,7 @@ changelog:
 # GitHub release configuration
 release:
   github:
-    owner: polymorcodeus
+    owner: fuzzyporpoise
     name: lnk
   draft: false
   prerelease: auto
@@ -95,7 +95,7 @@ release:
 
     ```bash
     # Quick install
-    curl -sSL https://raw.githubusercontent.com/polymorcodeus/lnk/main/install.sh | bash
+    curl -sSL https://raw.githubusercontent.com/fuzzyporpoise/lnk/main/install.sh | bash
 
     # Homebrew
     # not yet supported
@@ -108,6 +108,6 @@ release:
 
   footer: |
     ---
-    **Full Changelog**: https://github.com/polymorcodeus/lnk/compare/{{.PreviousTag}}...{{.Tag}}
+    **Full Changelog**: https://github.com/fuzzyporpoise/lnk/compare/{{.PreviousTag}}...{{.Tag}}
 
 # Homebrew tap
