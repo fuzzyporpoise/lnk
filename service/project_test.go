@@ -1352,7 +1352,7 @@ func TestProjectSyncAll_ReportsUnavailable(t *testing.T) {
 	}
 	// ProjectPush records the cache; clear it and then discover an empty
 	// directory so the cache records the project as missing.
-	if err := os.Remove(filepath.Join(svc.RepoPath(), ".lnkprojectcache")); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(service.RegistryPath()); err != nil && !os.IsNotExist(err) {
 		t.Fatalf("clear cache: %v", err)
 	}
 	emptyDir := filepath.Join(home, "empty")

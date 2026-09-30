@@ -14,10 +14,10 @@ import (
 	"go.fuzzyporpoise.dev/lnk/v2/internal/resolver"
 )
 
-// projectCacheFile is the machine-local mapping from stored project IDs to
-// their local checkout paths. It is gitignored so absolute paths are not
-// synced across machines.
-const projectCacheFile = ".lnkprojectcache"
+// registryFile is the basename of the machine-local registry that maps stored
+// project IDs to their local checkout paths. It lives outside the lnk repo so
+// moving or renaming the repo does not orphan the mapping.
+const registryFile = "registry.json"
 
 // ProjectCacheState describes the local availability of a cached project.
 type ProjectCacheState string
@@ -46,15 +46,29 @@ type ProjectCache struct {
 	Projects []ProjectCacheEntry `json:"projects"`
 }
 
-// projectCachePath returns the absolute path to the cache file.
-func (ps *ProjectService) projectCachePath() string {
-	return filepath.Join(ps.svc.RepoPath(), projectCacheFile)
+// RegistryPath returns the machine-local registry file path:
+// $LNK_REGISTRY if set, else $XDG_CACHE_HOME/lnk/registry.json, else
+// ~/.cache/lnk/registry.json. If the home directory cannot be determined it
+// falls back to the OS temporary directory so the registry is never written
+// to an arbitrary working directory.
+func RegistryPath() string {
+	if override := os.Getenv("LNK_REGISTRY"); override != "" {
+		return override
+	}
+	if cacheHome := os.Getenv("XDG_CACHE_HOME"); cacheHome != "" {
+		return filepath.Join(cacheHome, "lnk", registryFile)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "lnk-registry.json")
+	}
+	return filepath.Join(home, ".cache", "lnk", registryFile)
 }
 
 // LoadProjectCache reads the local project cache. A missing cache is treated
 // as an empty cache rather than an error.
 func (ps *ProjectService) LoadProjectCache() (*ProjectCache, error) {
-	path := ps.projectCachePath()
+	path := RegistryPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -70,14 +84,24 @@ func (ps *ProjectService) LoadProjectCache() (*ProjectCache, error) {
 	return &cache, nil
 }
 
-// SaveProjectCache writes the cache to disk in the lnk repo.
+// SaveProjectCache writes the registry to disk atomically, creating the cache
+// directory when it does not yet exist.
 func (ps *ProjectService) SaveProjectCache(cache *ProjectCache) error {
 	data, err := json.MarshalIndent(cache, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode project cache: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(ps.projectCachePath(), data, 0o644); err != nil {
+
+	path := RegistryPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create project cache dir: %w", err)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return fmt.Errorf("write project cache: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
 		return fmt.Errorf("write project cache: %w", err)
 	}
 	return nil

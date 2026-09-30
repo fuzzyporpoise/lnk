@@ -45,9 +45,69 @@ func TestProjectCache_LoadSaveAndGetSetRemove(t *testing.T) {
 	}
 }
 
-func clearProjectCache(t *testing.T, svc *service.Service) {
+func TestRegistryPath(t *testing.T) {
+	t.Run("LNK_REGISTRY override wins", func(t *testing.T) {
+		t.Setenv("LNK_REGISTRY", "/custom/registry.json")
+		t.Setenv("XDG_CACHE_HOME", "/xdg")
+		if got := service.RegistryPath(); got != "/custom/registry.json" {
+			t.Errorf("RegistryPath() = %q, want /custom/registry.json", got)
+		}
+	})
+
+	t.Run("XDG_CACHE_HOME is used when set", func(t *testing.T) {
+		t.Setenv("LNK_REGISTRY", "")
+		t.Setenv("XDG_CACHE_HOME", "/xdg")
+		want := filepath.Join("/xdg", "lnk", "registry.json")
+		if got := service.RegistryPath(); got != want {
+			t.Errorf("RegistryPath() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("falls back to the home cache dir", func(t *testing.T) {
+		t.Setenv("LNK_REGISTRY", "")
+		t.Setenv("XDG_CACHE_HOME", "")
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		want := filepath.Join(home, ".cache", "lnk", "registry.json")
+		if got := service.RegistryPath(); got != want {
+			t.Errorf("RegistryPath() = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestProjectCache_SaveCreatesRegistryDir(t *testing.T) {
+	svc, _ := testhelpers.TestHome(t)
+	ps := service.NewProjectService(svc)
+
+	path := service.RegistryPath()
+	if err := os.RemoveAll(filepath.Dir(path)); err != nil {
+		t.Fatalf("reset registry dir: %v", err)
+	}
+
+	cache := &service.ProjectCache{}
+	cache.Set(service.ProjectCacheEntry{ID: "github.com/user/repo", Path: "/tmp/repo", State: service.CacheStateAvailable})
+	if err := ps.SaveProjectCache(cache); err != nil {
+		t.Fatalf("SaveProjectCache: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("registry not written: %v", err)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Errorf("temp file left behind: %v", err)
+	}
+
+	loaded, err := ps.LoadProjectCache()
+	if err != nil {
+		t.Fatalf("LoadProjectCache: %v", err)
+	}
+	if _, ok := loaded.Get("github.com/user/repo"); !ok {
+		t.Error("expected saved entry to round-trip")
+	}
+}
+
+func clearProjectCache(t *testing.T) {
 	t.Helper()
-	path := filepath.Join(svc.RepoPath(), ".lnkprojectcache")
+	path := service.RegistryPath()
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		t.Fatalf("clear project cache: %v", err)
 	}
@@ -69,7 +129,7 @@ func TestProjectCacheDiscover_DiscoversAndValidates(t *testing.T) {
 		t.Fatalf("push: %v", err)
 	}
 	// ProjectPush auto-records the cache; clear it to test discovery.
-	clearProjectCache(t, svc)
+	clearProjectCache(t)
 
 	result, err := ps.ProjectCacheDiscover(context.Background(), []string{parent})
 	if err != nil {
@@ -144,7 +204,7 @@ func TestCheckProjectCache(t *testing.T) {
 		t.Fatalf("push: %v", err)
 	}
 	// ProjectPush auto-records the cache; clear it to test the uncached state.
-	clearProjectCache(t, svc)
+	clearProjectCache(t)
 
 	// Without a cache entry the project is uncached.
 	check, err := ps.CheckProjectCache(context.Background())

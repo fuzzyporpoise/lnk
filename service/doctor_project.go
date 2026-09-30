@@ -46,9 +46,9 @@ func (s *Service) scanProjectIssues(ctx context.Context) ([]ProjectIssue, error)
 	return issues, nil
 }
 
-// findCacheIssues validates the machine-local .lnkprojectcache and returns
+// findCacheIssues validates the machine-local project registry and returns
 // warnings for entries that point to missing or mismatched checkouts, as well
-// as stored projects with no cache entry at all.
+// as stored projects with no registry entry at all.
 func (s *Service) findCacheIssues(ctx context.Context) ([]ProjectIssue, error) {
 	ps := NewProjectService(s)
 	check, err := ps.CheckProjectCache(ctx)
@@ -68,7 +68,7 @@ func (s *Service) findCacheIssues(ctx context.Context) ([]ProjectIssue, error) {
 	for _, id := range check.Uncached {
 		issues = append(issues, ProjectIssue{
 			ProjectID:  id,
-			Issue:      "no local checkout recorded in .lnkprojectcache",
+			Issue:      "no local checkout recorded in the project registry",
 			Severity:   "warning",
 			Suggestion: "run 'lnk project cache --scan <dir>' to discover this project",
 		})
@@ -81,7 +81,7 @@ func (s *Service) findCacheIssues(ctx context.Context) ([]ProjectIssue, error) {
 }
 
 // findOrphanedProjectStorage returns issues for stored projects that have no
-// available local checkout recorded in .lnkprojectcache. Intentionally
+// available local checkout recorded in the project registry. Intentionally
 // not-downloaded projects are not reported as orphaned.
 func (s *Service) findOrphanedProjectStorage(ctx context.Context) ([]ProjectIssue, error) {
 	stored, err := s.storedProjectIDs()
@@ -165,8 +165,8 @@ func (s *Service) storedProjectIDs() ([]string, error) {
 }
 
 // findBrokenProjectSymlinks walks the available project checkouts recorded in
-// .lnkprojectcache and reports project-scope symlinks whose storage target no
-// longer exists.
+// the project registry and reports project-scope symlinks whose storage target
+// no longer exists.
 func (s *Service) findBrokenProjectSymlinks(ctx context.Context) ([]ProjectIssue, error) {
 	ps := NewProjectService(s)
 	check, err := ps.CheckProjectCache(ctx)
