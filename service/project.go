@@ -34,6 +34,29 @@ func NewProjectService(svc *Service) *ProjectService {
 // directories can be enumerated even though a project ID contains slashes.
 const projectMarkerFile = ".lnkproject"
 
+// projectsDirName is the repo-relative root of all project storage. Automatic
+// project commits are scoped to this subtree so they never sweep in unrelated
+// repo changes, which belong to the user's own commits.
+const projectsDirName = "projects"
+
+// commitProjectChanges stages the project storage tree and commits it when it
+// has changes. Staging, the change check, and the commit itself are all scoped
+// to projects/, so unrelated changes elsewhere in the repo, staged or not, are
+// neither committed nor mistaken for project changes.
+func (ps *ProjectService) commitProjectChanges(ctx context.Context, message string) error {
+	if err := ps.svc.stagePaths(ctx, projectsDirName); err != nil {
+		return err
+	}
+	hasChanges, err := ps.svc.git.HasChanges(ctx, projectsDirName)
+	if err != nil {
+		return err
+	}
+	if !hasChanges {
+		return nil
+	}
+	return ps.svc.commitAutoIn(ctx, message, projectsDirName)
+}
+
 // ProjectInit activates project scope for the git repo containing
 // projectRoot by creating an empty .lnkinclude file at the repo root if one
 // does not already exist. It returns true when the file was created and
@@ -200,17 +223,8 @@ func (ps *ProjectService) ProjectUntrackPattern(ctx context.Context, projectRoot
 		if err != nil {
 			return result, err
 		}
-		if err := ps.svc.git.AddAll(ctx); err != nil {
+		if err := ps.commitProjectChanges(ctx, "lnk: untracked '"+target+"' in project "+id); err != nil {
 			return result, err
-		}
-		hasChanges, err := ps.svc.git.HasChanges(ctx)
-		if err != nil {
-			return result, err
-		}
-		if hasChanges {
-			if err := ps.svc.commit(ctx, "lnk: untracked '"+target+"' in project "+id); err != nil {
-				return result, err
-			}
 		}
 	}
 
@@ -517,18 +531,8 @@ func (ps *ProjectService) ProjectPush(ctx context.Context, projectRoot string, f
 		SkippedTracked: stats.skippedTracked,
 	}
 
-	if err := ps.svc.git.AddAll(ctx); err != nil {
+	if err := ps.commitProjectChanges(ctx, "lnk: sync project "+id); err != nil {
 		return result, err
-	}
-
-	hasChanges, err := ps.svc.git.HasChanges(ctx)
-	if err != nil {
-		return result, err
-	}
-	if hasChanges {
-		if err := ps.svc.commit(ctx, "lnk: sync project "+id); err != nil {
-			return result, err
-		}
 	}
 
 	if len(stats.failed) > 0 {
@@ -866,17 +870,8 @@ func (ps *ProjectService) ProjectSync(ctx context.Context, projectRoot string, d
 	}
 
 	if !dryRun {
-		if err := ps.svc.git.AddAll(ctx); err != nil {
+		if err := ps.commitProjectChanges(ctx, "lnk: sync project "+id); err != nil {
 			return result, err
-		}
-		hasChanges, err := ps.svc.git.HasChanges(ctx)
-		if err != nil {
-			return result, err
-		}
-		if hasChanges {
-			if err := ps.svc.commit(ctx, "lnk: sync project "+id); err != nil {
-				return result, err
-			}
 		}
 	}
 
@@ -1105,17 +1100,8 @@ func (ps *ProjectService) ProjectRemove(ctx context.Context, projectRoot string)
 		return result, fmt.Errorf("remove project storage: %w", err)
 	}
 
-	if err := ps.svc.git.AddAll(ctx); err != nil {
+	if err := ps.commitProjectChanges(ctx, "lnk: removed project "+id); err != nil {
 		return result, err
-	}
-	hasChanges, err := ps.svc.git.HasChanges(ctx)
-	if err != nil {
-		return result, err
-	}
-	if hasChanges {
-		if err := ps.svc.commit(ctx, "lnk: removed project "+id); err != nil {
-			return result, err
-		}
 	}
 
 	return result, nil

@@ -28,11 +28,10 @@ const (
 // Service owns the v2 CLI semantics while reusing the existing low-level git
 // and filesystem collaborators.
 type Service struct {
-	repoPath      string
-	git           *gitpkg.Git
-	format        tracker.RepoFormat
-	gitConfigured bool
-	resolver      scope.Resolver
+	repoPath string
+	git      *gitpkg.Git
+	format   tracker.RepoFormat
+	resolver scope.Resolver
 }
 
 type Option func(*Service)
@@ -180,12 +179,18 @@ func NormalizeHost(host string) string {
 	return host
 }
 
-// commit is a thin wrapper that ensures git config is set once before committing.
-func (s *Service) commit(ctx context.Context, message string) error {
-	if err := s.git.EnsureGitConfigOnce(ctx, &s.gitConfigured); err != nil {
-		return err
-	}
-	return s.git.Commit(ctx, message)
+// commitAuto creates an automatic lnk commit authored with the lnk machine
+// identity. The identity is supplied per invocation, so it never touches the
+// repository's git config and never shadows the user's own identity.
+func (s *Service) commitAuto(ctx context.Context, message string) error {
+	return s.git.CommitAs(ctx, gitpkg.LnkCommitName, gitpkg.LnkCommitEmail, message)
+}
+
+// commitAutoIn is commitAuto scoped to the given repo-relative paths: the
+// commit records only the current state of those paths, so unrelated staged
+// changes elsewhere in the index are left for the user's own commits.
+func (s *Service) commitAutoIn(ctx context.Context, message string, paths ...string) error {
+	return s.git.CommitAs(ctx, gitpkg.LnkCommitName, gitpkg.LnkCommitEmail, message, paths...)
 }
 
 // requireGitRepo returns an error if the configured path is not a git repository.

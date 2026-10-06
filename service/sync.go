@@ -7,12 +7,10 @@ import (
 	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 )
 
-// Commit stages all repo changes and creates a commit.
+// Commit stages all repo changes and creates a commit using the ambient git
+// identity (the user's own).
 func (s *Service) Commit(ctx context.Context, message string) error {
 	if err := s.requireGitRepo(); err != nil {
-		return err
-	}
-	if err := s.git.EnsureGitConfigOnce(ctx, &s.gitConfigured); err != nil {
 		return err
 	}
 	hasChanges, err := s.git.HasChanges(ctx)
@@ -25,7 +23,7 @@ func (s *Service) Commit(ctx context.Context, message string) error {
 	if err := s.git.AddAll(ctx); err != nil {
 		return err
 	}
-	return s.commit(ctx, message)
+	return s.git.Commit(ctx, message)
 }
 
 // Push pushes existing commits only.

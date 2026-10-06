@@ -34,7 +34,7 @@ func (s *Service) Init(ctx context.Context) error {
 	if err := s.stagePaths(ctx, repoMarkerFile); err != nil {
 		return err
 	}
-	return s.commit(ctx, "lnk: initialize repository")
+	return s.commitAuto(ctx, "lnk: initialize repository")
 }
 
 // Clone clones a remote repo and optionally runs bootstrap.

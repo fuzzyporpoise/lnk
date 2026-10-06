@@ -62,6 +62,10 @@ func TestHome(t *testing.T) (svc *service.Service, home string) {
 	if err := svc.Init(context.Background()); err != nil {
 		t.Fatalf("TestHome Init: %v", err)
 	}
+	// Init runs identity-free (its commit uses lnk's machine identity via -c
+	// args), so give the repo a local identity for fixture commits made with
+	// raw git commands; CI has no ambient identity for those.
+	ConfigureGitIdentity(t, repoPath)
 	return svc, home
 }
 

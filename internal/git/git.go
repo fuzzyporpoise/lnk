@@ -21,7 +21,6 @@ var (
 	ErrBranchSetup = errors.New("failed to set up the default branch")
 	ErrGitCommand  = errors.New("git operation failed")
 	ErrNoRemote    = errors.New("no remote repository is configured")
-	ErrGitConfig   = errors.New("failed to configure git settings")
 	ErrPush        = errors.New("failed to push changes to remote repository")
 	ErrPull        = errors.New("failed to pull changes from remote repository")
 	ErrGitTimeout  = errors.New("git operation timed out")
@@ -158,8 +157,23 @@ func (g *Git) Stage(ctx context.Context, path string) error {
 	return nil
 }
 
-// Commit creates a commit with the given message
+// Machine identity used for lnk's automatic commits. It is supplied as
+// per-invocation -c arguments rather than written to any git config, so it
+// never shadows the user's own identity.
+const (
+	LnkCommitName  = "Lnk User"
+	LnkCommitEmail = "lnk@localhost"
+)
+
+// Commit creates a commit using the ambient git identity (from the
+// environment or git config). When no identity resolves (an environment where
+// git would refuse to commit), it falls back to the lnk machine identity via
+// per-invocation -c arguments so the commit still succeeds without touching
+// any git config.
 func (g *Git) Commit(ctx context.Context, message string) error {
+	if !g.hasIdentity(ctx) {
+		return g.CommitAs(ctx, LnkCommitName, LnkCommitEmail, message)
+	}
 	_, err := g.runGitCommand(ctx, shortTimeout, "commit", "-m", message)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -171,50 +185,110 @@ func (g *Git) Commit(ctx context.Context, message string) error {
 	return nil
 }
 
-// EnsureGitConfigOnce sets git user.name and user.email once per Git instance.
-func (g *Git) EnsureGitConfigOnce(ctx context.Context, configured *bool) error {
-	if *configured {
-		return nil
+// CommitAs creates a commit authored with the given identity, passed as
+// per-invocation -c arguments so the persistent git config is never modified.
+// Signing is disabled so machine commits are never signed with the user's key,
+// which may be an interactive or unavailable key in unattended runs.
+//
+// When paths are given, the commit is limited to the current state of those
+// paths, ignoring anything else staged in the index.
+func (g *Git) CommitAs(ctx context.Context, name, email, message string, paths ...string) error {
+	args := []string{
+		"-c", "user.name=" + name,
+		"-c", "user.email=" + email,
+		"-c", "commit.gpgSign=false",
+		"commit", "-m", message,
 	}
-	if err := g.ensureGitConfig(ctx); err != nil {
-		return err
+	if len(paths) > 0 {
+		args = append(args, "--")
+		args = append(args, paths...)
 	}
-	*configured = true
+	_, err := g.runGitCommand(ctx, shortTimeout, args...)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return lnkerror.Wrap(ErrGitTimeout)
+		}
+		return lnkerror.WithSuggestion(ErrGitCommand, "ensure you have staged changes and try again")
+	}
+
 	return nil
 }
 
-// ensureGitConfig ensures that git user.name and user.email are configured
-func (g *Git) ensureGitConfig(ctx context.Context) error {
-	// Check if user.name is configured
-	if output, err := g.runGitCommand(ctx, shortTimeout, "config", "user.name"); err != nil || len(strings.TrimSpace(string(output))) == 0 {
-		if err != nil && errors.Is(err, context.DeadlineExceeded) {
+// hasIdentity reports whether git can resolve a full author and committer
+// identity from the environment or config, i.e. whether a plain `git commit`
+// would proceed without an explicit -c identity. Each of author and committer
+// resolves name from GIT_<ROLE>_NAME or user.name, and email from
+// GIT_<ROLE>_EMAIL, user.email, or EMAIL; both roles must resolve.
+func (g *Git) hasIdentity(ctx context.Context) bool {
+	hasName := g.configValue(ctx, "user.name") != "" ||
+		(os.Getenv("GIT_COMMITTER_NAME") != "" && os.Getenv("GIT_AUTHOR_NAME") != "")
+	hasEmail := g.configValue(ctx, "user.email") != "" || os.Getenv("EMAIL") != "" ||
+		(os.Getenv("GIT_COMMITTER_EMAIL") != "" && os.Getenv("GIT_AUTHOR_EMAIL") != "")
+	return hasName && hasEmail
+}
+
+// configValue returns a config value from any level, or "" when the key is
+// unset or unreadable. It is only used for probing; callers that need error
+// detail should use localConfig or runGitCommand directly.
+func (g *Git) configValue(ctx context.Context, key string) string {
+	out, err := g.runGitCommand(ctx, shortTimeout, "config", key)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// LocalIdentity returns the user.name and user.email stored in the
+// repository's local config only (empty when a key is unset). Global and
+// system values are ignored.
+func (g *Git) LocalIdentity(ctx context.Context) (name, email string, err error) {
+	if name, err = g.localConfig(ctx, "user.name"); err != nil {
+		return "", "", err
+	}
+	if email, err = g.localConfig(ctx, "user.email"); err != nil {
+		return "", "", err
+	}
+	return name, email, nil
+}
+
+// localConfig reads a single key from the repository's local config. An unset
+// key is not an error; it yields an empty string.
+func (g *Git) localConfig(ctx context.Context, key string) (string, error) {
+	out, err := g.runGitCommand(ctx, shortTimeout, "config", "--local", "--get", key)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return "", lnkerror.Wrap(ErrGitTimeout)
+		}
+		// Exit code 1 means the key is unset, which is not an error here.
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return "", nil
+		}
+		return "", lnkerror.WithSuggestion(ErrGitCommand, "check your git installation")
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// UnsetLocalIdentity removes user.name and user.email from the repository's
+// local config. It is used to clear the identity that older lnk versions
+// mistakenly persisted, restoring the user's ambient identity. Missing keys
+// are ignored.
+func (g *Git) UnsetLocalIdentity(ctx context.Context) error {
+	for _, key := range []string{"user.name", "user.email"} {
+		_, err := g.runGitCommand(ctx, shortTimeout, "config", "--local", "--unset", key)
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
 			return lnkerror.Wrap(ErrGitTimeout)
 		}
-		// Set a default user.name
-		_, err = g.runGitCommand(ctx, shortTimeout, "config", "user.name", "Lnk User")
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return lnkerror.Wrap(ErrGitTimeout)
-			}
-			return lnkerror.WithSuggestion(ErrGitConfig, "check your git installation")
+		// Exit code 5 means the key was not set, which is fine.
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 5 {
+			continue
 		}
+		return lnkerror.WithSuggestion(ErrGitCommand, "check your git installation")
 	}
-
-	// Check if user.email is configured
-	if output, err := g.runGitCommand(ctx, shortTimeout, "config", "user.email"); err != nil || len(strings.TrimSpace(string(output))) == 0 {
-		if err != nil && errors.Is(err, context.DeadlineExceeded) {
-			return lnkerror.Wrap(ErrGitTimeout)
-		}
-		// Set a default user.email
-		_, err = g.runGitCommand(ctx, shortTimeout, "config", "user.email", "lnk@localhost")
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return lnkerror.Wrap(ErrGitTimeout)
-			}
-			return lnkerror.WithSuggestion(ErrGitConfig, "check your git installation")
-		}
-	}
-
 	return nil
 }
 
@@ -403,9 +477,16 @@ func (g *Git) RmCached(ctx context.Context, paths []string, recursive bool) erro
 	return nil
 }
 
-// HasChanges checks if there are uncommitted changes
-func (g *Git) HasChanges(ctx context.Context) (bool, error) {
-	output, err := g.runGitCommand(ctx, shortTimeout, "status", "--porcelain")
+// HasChanges checks if there are uncommitted changes. When paths are given,
+// only changes under those paths are considered, which keeps automatic commits
+// limited to the subtree they touched.
+func (g *Git) HasChanges(ctx context.Context, paths ...string) (bool, error) {
+	args := []string{"status", "--porcelain"}
+	if len(paths) > 0 {
+		args = append(args, "--")
+		args = append(args, paths...)
+	}
+	output, err := g.runGitCommand(ctx, shortTimeout, args...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return false, lnkerror.Wrap(ErrGitTimeout)

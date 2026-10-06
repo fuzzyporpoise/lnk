@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -33,6 +34,61 @@ func TestDoctor_Clean(t *testing.T) {
 	}
 	if len(report.Collisions) != 0 {
 		t.Errorf("expected no collisions, got %d", len(report.Collisions))
+	}
+}
+
+func TestDoctor_LegacyCommitIdentity(t *testing.T) {
+	svc, _ := testhelpers.TestHome(t)
+	repoPath := svc.RepoPath()
+
+	// Simulate a repo that an older lnk version polluted with its own identity.
+	cmds := [][]string{
+		{"git", "-C", repoPath, "config", "--local", "user.name", "Lnk User"},
+		{"git", "-C", repoPath, "config", "--local", "user.email", "lnk@localhost"},
+	}
+	for _, c := range cmds {
+		if out, err := exec.Command(c[0], c[1:]...).CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", c, err, out)
+		}
+	}
+
+	report, err := svc.Doctor(context.Background(), "", false, false, false)
+	if err != nil {
+		t.Fatalf("Doctor scan: %v", err)
+	}
+	if !report.LegacyCommitIdentity {
+		t.Fatal("expected LegacyCommitIdentity=true")
+	}
+	if !report.HasIssues() {
+		t.Error("expected HasIssues=true for legacy commit identity")
+	}
+
+	fixed, err := svc.Doctor(context.Background(), "", false, true, false)
+	if err != nil {
+		t.Fatalf("Doctor fix: %v", err)
+	}
+	if !fixed.LegacyCommitIdentityFixed {
+		t.Error("expected LegacyCommitIdentityFixed=true")
+	}
+	if got := localGitConfig(t, repoPath, "user.name"); got != "" {
+		t.Errorf("local user.name = %q, want empty after fix", got)
+	}
+	if got := localGitConfig(t, repoPath, "user.email"); got != "" {
+		t.Errorf("local user.email = %q, want empty after fix", got)
+	}
+}
+
+func TestDoctor_NonLnkLocalIdentityNotFlagged(t *testing.T) {
+	svc, _ := testhelpers.TestHome(t)
+	repoPath := svc.RepoPath()
+	testhelpers.ConfigureGitIdentity(t, repoPath)
+
+	report, err := svc.Doctor(context.Background(), "", false, false, false)
+	if err != nil {
+		t.Fatalf("Doctor: %v", err)
+	}
+	if report.LegacyCommitIdentity {
+		t.Error("expected LegacyCommitIdentity=false for a non-lnk local identity")
 	}
 }
 

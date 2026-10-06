@@ -1224,6 +1224,15 @@ func printDoctor(w io.Writer, report service.DoctorReport) error {
 			return err
 		}
 	}
+	if report.LegacyCommitIdentity {
+		line := "Legacy lnk commit identity in .git/config shadows your own git identity"
+		if report.LegacyCommitIdentityFixed {
+			line = "Removed legacy lnk commit identity from .git/config"
+		}
+		if _, err := fmt.Fprintln(w, line); err != nil {
+			return err
+		}
+	}
 	if len(report.Collisions) > 0 {
 		if _, err := fmt.Fprintln(w, "Ownership collisions:"); err != nil {
 			return err

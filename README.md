@@ -148,6 +148,8 @@ lnk restore --dry-run                     # preview what would be restored
 
 `status` shows the full `git status` output. If no remote is configured, it prints `Remote not set` at the top. Use `--color` to enable colorized output (default is plain text).
 
+Automatic commits (`lnk add`, `create`, `remove`, `forget`, `move`, `doctor`, `init`, `format`, and project `push`/`sync`/`untrack`/`remove`) are authored as `Lnk User <lnk@localhost>`, so machine-made changes are easy to tell apart from yours. That identity is applied to the commit itself and is never written to git config, so your `git commit` and `lnk commit` keep using your own ambient identity. In an environment with no git identity configured at all, an automatic commit still succeeds by falling back to the lnk identity.
+
 ### Remove
 
 ```bash
@@ -177,6 +179,8 @@ lnk doctor --all                          # check all scopes
 ```
 
 `lnk doctor` checks project scope as well as host/common scope: it reports orphaned project storage, broken project symlinks, and missing project checkouts using the machine-local project registry. Project issues are listed with severity and a suggested fix.
+
+`lnk doctor` also reports a **legacy commit identity**: older lnk versions wrote `user.name`/`user.email` into the repo's local `.git/config`, which permanently shadowed your own git identity for `git commit` and `lnk commit`. When the local config still holds exactly `Lnk User <lnk@localhost>`, doctor flags it, and `lnk doctor --fix` removes it so your commits use your real (global or direnv-provided) identity again. Current lnk versions never write that config, so only repos touched by an older version are affected.
 
 When restoring symlinks, if a real file exists at the target location (not a symlink), it will be renamed to `<path>.lnk-backup` to preserve your data before the symlink is created. Check for `.lnk-backup` files after running `restore`, `update`, or `doctor` if you expect them. The git hook path (`lnk hooks run ...`) is collision-safe and does not create `.lnk-backup` files; it reports collisions to stderr and leaves the real file in place.
 
@@ -252,6 +256,7 @@ Project checkouts are tracked in a machine-local registry at `$XDG_CACHE_HOME/ln
 - **The lnk repo protects itself.** Project commands refuse to run inside the lnk repository (or any clone of it) to prevent storing it inside its own storage.
 - **Reconciliation is explicit for deletions.** `project sync` reports stored files whose live copies were deleted; they are only removed from storage with `--prune-deletions`.
 - **The project registry is machine-local.** It is maintained automatically by `project push` and `project sync`, lives at `$XDG_CACHE_HOME/lnk/registry.json` (falling back to `~/.cache/lnk/registry.json`; override with `LNK_REGISTRY`), and is never synced. Use `project cache --scan <dir>` to populate or repair it on a new machine or after moving checkouts.
+- **Project commits are scoped to `projects/`.** Automatic commits from `project push`, `project sync`, `project untrack`, and `project remove` stage and commit only the `projects/` tree, so unrelated changes pending elsewhere in the lnk repo (say, a hand-edited host-scope file) are neither committed nor mistaken for project changes.
 - **Project identity comes from `origin`.** Storage lives at `projects/<normalized-origin>/`, so switching remotes, renaming the repo, or moving a checkout that has no `origin` (its id is hashed from the local path) orphans the old storage directory. `project remove`, `project forget`, and `project sync` then report `no stored files for this project`, while the live symlinks still point at the old path and `lnk doctor` reports the leftovers as orphaned project storage. Untrack before changing the remote with `lnk project remove` (or `forget`); if the remote has already moved, point `origin` back at the old URL, run `lnk project remove`, then set the new URL and `lnk project push` to re-adopt.
 
 ### Hooks

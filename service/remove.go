@@ -43,7 +43,7 @@ func (s *Service) Remove(ctx context.Context, host, input string) error {
 	if err := s.stagePaths(ctx, removeResult.StagePaths...); err != nil {
 		return err
 	}
-	if err := s.commit(ctx, fmt.Sprintf("lnk: removed from %s\n%s", host, input)); err != nil {
+	if err := s.commitAuto(ctx, fmt.Sprintf("lnk: removed from %s\n%s", host, input)); err != nil {
 		return err
 	}
 
@@ -96,5 +96,5 @@ func (s *Service) Forget(ctx context.Context, host, input string) error {
 	if err := s.stagePaths(ctx, lnkFileName); err != nil {
 		return err
 	}
-	return s.commit(ctx, fmt.Sprintf("lnk: forgot %s", filepath.Base(file.RelativePath)))
+	return s.commitAuto(ctx, fmt.Sprintf("lnk: forgot %s", filepath.Base(file.RelativePath)))
 }
