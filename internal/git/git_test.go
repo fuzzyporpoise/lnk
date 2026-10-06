@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,12 +25,75 @@ func initRepo(t *testing.T, path string) *git.Git {
 	return g
 }
 
+// configureGit sets an ambient identity in the repo's local config, mimicking
+// a user who has configured git themselves.
 func configureGit(t *testing.T, g *git.Git) {
 	t.Helper()
-	configured := false
-	if err := g.EnsureGitConfigOnce(context.Background(), &configured); err != nil {
-		t.Fatalf("EnsureGitConfigOnce: %v", err)
+	for key, value := range map[string]string{
+		"user.name":  "Test User",
+		"user.email": "test@example.com",
+	} {
+		if _, err := g.Run(context.Background(), "config", key, value); err != nil {
+			t.Fatalf("configure %s: %v", key, err)
+		}
 	}
+}
+
+// isolateGitEnv points git at empty config files so no ambient identity leaks
+// in from the developer's machine or CI, and unsets the identity environment
+// variables for the same reason. It returns the temp home directory.
+// It cannot be used from a parallel test because it mutates the process env.
+func isolateGitEnv(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(home, ".gitconfig"))
+	t.Setenv("GIT_CONFIG_SYSTEM", filepath.Join(home, ".gitconfig-system"))
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	// Git rejects a set-but-empty identity variable instead of ignoring it, so
+	// these must be truly unset rather than emptied.
+	for _, key := range []string{
+		"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
+		"GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
+		"EMAIL",
+	} {
+		unsetEnv(t, key)
+	}
+	return home
+}
+
+// unsetEnv removes key from the process environment for the duration of the
+// test, restoring its prior value (or absence) on cleanup.
+func unsetEnv(t *testing.T, key string) {
+	t.Helper()
+	value, wasSet := os.LookupEnv(key)
+	t.Cleanup(func() {
+		if wasSet {
+			os.Setenv(key, value)
+		} else {
+			os.Unsetenv(key)
+		}
+	})
+	os.Unsetenv(key)
+}
+
+// commitAuthor returns the "Name <email>" of the most recent commit.
+func commitAuthor(t *testing.T, repoPath string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", repoPath, "log", "-1", "--format=%an <%ae>").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log: %v\n%s", err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// configHasUserIdentity reports whether the repo's local config carries a
+// user.name, which lnk must never write.
+func configHasUserIdentity(t *testing.T, repoPath string) bool {
+	t.Helper()
+	out, err := exec.Command("git", "-C", repoPath, "config", "--local", "--get", "user.name").CombinedOutput()
+	return err == nil && strings.TrimSpace(string(out)) != ""
 }
 
 // ---------- tests ----------
@@ -84,30 +148,167 @@ func TestGit_Run(t *testing.T) {
 	})
 }
 
-func TestGit_EnsureGitConfigOnce(t *testing.T) {
-	t.Parallel()
-
-	t.Run("configures_git_user", func(t *testing.T) {
-		t.Parallel()
+func TestGit_CommitIdentity(t *testing.T) {
+	t.Run("CommitAs_authors_lnk_identity_without_writing_config", func(t *testing.T) {
+		isolateGitEnv(t)
 		tmp := t.TempDir()
 		g := initRepo(t, tmp)
-		configured := false
-
-		if err := g.EnsureGitConfigOnce(context.Background(), &configured); err != nil {
+		if err := os.WriteFile(filepath.Join(tmp, "file.txt"), []byte("hello"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if !configured {
-			t.Error("expected configured to be true")
-		}
-
-		// Idempotent: second call should not error and leave flag true
-		if err := g.EnsureGitConfigOnce(context.Background(), &configured); err != nil {
+		if err := g.AddAll(context.Background()); err != nil {
 			t.Fatal(err)
 		}
-		if !configured {
-			t.Error("expected configured to remain true")
+
+		if err := g.CommitAs(context.Background(), git.LnkCommitName, git.LnkCommitEmail, "machine"); err != nil {
+			t.Fatalf("CommitAs: %v", err)
+		}
+
+		if got, want := commitAuthor(t, tmp), "Lnk User <lnk@localhost>"; got != want {
+			t.Errorf("author = %q, want %q", got, want)
+		}
+		if configHasUserIdentity(t, tmp) {
+			t.Error("CommitAs must not write a user identity to .git/config")
 		}
 	})
+
+	t.Run("Commit_uses_ambient_identity", func(t *testing.T) {
+		isolateGitEnv(t)
+		tmp := t.TempDir()
+		g := initRepo(t, tmp)
+		configureGit(t, g)
+		if err := os.WriteFile(filepath.Join(tmp, "file.txt"), []byte("hello"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := g.AddAll(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := g.Commit(context.Background(), "mine"); err != nil {
+			t.Fatalf("Commit: %v", err)
+		}
+
+		if got, want := commitAuthor(t, tmp), "Test User <test@example.com>"; got != want {
+			t.Errorf("author = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("Commit_falls_back_without_identity", func(t *testing.T) {
+		isolateGitEnv(t)
+		tmp := t.TempDir()
+		g := initRepo(t, tmp)
+		if err := os.WriteFile(filepath.Join(tmp, "file.txt"), []byte("hello"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := g.AddAll(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := g.Commit(context.Background(), "auto"); err != nil {
+			t.Fatalf("Commit: %v", err)
+		}
+
+		if got, want := commitAuthor(t, tmp), "Lnk User <lnk@localhost>"; got != want {
+			t.Errorf("author = %q, want %q", got, want)
+		}
+		if configHasUserIdentity(t, tmp) {
+			t.Error("Commit fallback must not write a user identity to .git/config")
+		}
+	})
+
+	t.Run("Commit_uses_env_identity_without_config", func(t *testing.T) {
+		isolateGitEnv(t)
+		t.Setenv("GIT_AUTHOR_NAME", "Env User")
+		t.Setenv("GIT_AUTHOR_EMAIL", "env@example.com")
+		t.Setenv("GIT_COMMITTER_NAME", "Env User")
+		t.Setenv("GIT_COMMITTER_EMAIL", "env@example.com")
+		tmp := t.TempDir()
+		g := initRepo(t, tmp)
+		if err := os.WriteFile(filepath.Join(tmp, "file.txt"), []byte("hello"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := g.AddAll(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := g.Commit(context.Background(), "env"); err != nil {
+			t.Fatalf("Commit: %v", err)
+		}
+
+		if got, want := commitAuthor(t, tmp), "Env User <env@example.com>"; got != want {
+			t.Errorf("author = %q, want %q (env identity must not trigger the lnk fallback)", got, want)
+		}
+	})
+
+	t.Run("CommitAs_scopes_commit_to_paths", func(t *testing.T) {
+		isolateGitEnv(t)
+		tmp := t.TempDir()
+		g := initRepo(t, tmp)
+		for name, content := range map[string]string{"keep.txt": "keep", "other.txt": "other"} {
+			if err := os.WriteFile(filepath.Join(tmp, name), []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := g.AddAll(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := g.CommitAs(context.Background(), git.LnkCommitName, git.LnkCommitEmail, "scoped", "keep.txt"); err != nil {
+			t.Fatalf("CommitAs: %v", err)
+		}
+
+		// other.txt was staged but sits outside the pathspec: it must stay
+		// staged and must not reach HEAD.
+		out, err := exec.Command("git", "-C", tmp, "status", "--porcelain").CombinedOutput()
+		if err != nil {
+			t.Fatalf("git status: %v\n%s", err, out)
+		}
+		if got, want := strings.TrimSpace(string(out)), "A  other.txt"; got != want {
+			t.Errorf("status = %q, want %q (staged and uncommitted)", got, want)
+		}
+		if out, err := exec.Command("git", "-C", tmp, "cat-file", "-e", "HEAD:other.txt").CombinedOutput(); err == nil {
+			t.Errorf("other.txt reached HEAD despite the pathspec: %s", out)
+		}
+	})
+}
+
+func TestGit_LocalIdentity(t *testing.T) {
+	isolateGitEnv(t)
+	tmp := t.TempDir()
+	g := initRepo(t, tmp)
+
+	name, email, err := g.LocalIdentity(context.Background())
+	if err != nil {
+		t.Fatalf("LocalIdentity: %v", err)
+	}
+	if name != "" || email != "" {
+		t.Errorf("expected empty local identity, got %q %q", name, email)
+	}
+
+	configureGit(t, g)
+	name, email, err = g.LocalIdentity(context.Background())
+	if err != nil {
+		t.Fatalf("LocalIdentity: %v", err)
+	}
+	if name != "Test User" || email != "test@example.com" {
+		t.Errorf("local identity = %q %q, want %q %q", name, email, "Test User", "test@example.com")
+	}
+
+	if err := g.UnsetLocalIdentity(context.Background()); err != nil {
+		t.Fatalf("UnsetLocalIdentity: %v", err)
+	}
+	// Idempotent: unsetting already-absent keys must not error.
+	if err := g.UnsetLocalIdentity(context.Background()); err != nil {
+		t.Fatalf("UnsetLocalIdentity (second call): %v", err)
+	}
+
+	name, email, err = g.LocalIdentity(context.Background())
+	if err != nil {
+		t.Fatalf("LocalIdentity: %v", err)
+	}
+	if name != "" || email != "" {
+		t.Errorf("expected cleared local identity, got %q %q", name, email)
+	}
 }
 
 func TestGit_Commit(t *testing.T) {

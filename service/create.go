@@ -99,7 +99,7 @@ func (s *Service) Create(ctx context.Context, host string, paths []string, opts 
 	}
 
 	pathCommit := strings.Join(addResult.StagePaths, "\n")
-	if err := s.commit(ctx, fmt.Sprintf("lnk: created and added to %s\n%s", host, pathCommit)); err != nil {
+	if err := s.commitAuto(ctx, fmt.Sprintf("lnk: created and added to %s\n%s", host, pathCommit)); err != nil {
 		fm.RollbackAll(addResult.Rollback)
 		return err
 	}

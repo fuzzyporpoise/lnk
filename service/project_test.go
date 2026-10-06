@@ -494,6 +494,108 @@ func TestProjectPush_MovesMatchingFileToStorage(t *testing.T) {
 	}
 }
 
+func TestProjectPush_CommitScopedToProjects(t *testing.T) {
+	svc, home := testhelpers.TestHome(t)
+	repoDir := filepath.Join(home, "repos", "hermes")
+	testhelpers.MakeDir(t, repoDir)
+	initProjectRepo(t, repoDir)
+
+	ps := service.NewProjectService(svc)
+	if _, _, err := ps.ProjectAddPattern(context.Background(), repoDir, ".cursor/**"); err != nil {
+		t.Fatalf("add pattern: %v", err)
+	}
+	testhelpers.MakeFile(t, filepath.Join(repoDir, ".cursor", "rules.md"), "# rules\n")
+
+	// An unrelated, uncommitted change elsewhere in the lnk repo. A project
+	// command must not sweep it into the automatic commit.
+	unrelated := filepath.Join(svc.RepoPath(), "common.lnk", "unrelated.txt")
+	testhelpers.MakeFile(t, unrelated, "unrelated\n")
+
+	before := len(testhelpers.GitLog(t, svc.RepoPath()))
+	if _, err := ps.ProjectPush(context.Background(), repoDir, false); err != nil {
+		t.Fatalf("ProjectPush: %v", err)
+	}
+	after := testhelpers.GitLog(t, svc.RepoPath())
+	if len(after) != before+1 {
+		t.Fatalf("expected exactly 1 new commit, before=%d after=%d", before, len(after))
+	}
+
+	if out, err := exec.Command("git", "-C", svc.RepoPath(), "ls-files", "--error-unmatch", "common.lnk/unrelated.txt").CombinedOutput(); err == nil {
+		t.Errorf("unrelated change was committed: %s", out)
+	}
+	if _, err := exec.Command("git", "-C", svc.RepoPath(), "ls-files", "--error-unmatch", "projects").CombinedOutput(); err != nil {
+		t.Errorf("project storage should be committed: %v", err)
+	}
+	if got, want := gitAuthor(t, svc.RepoPath()), "Lnk User <lnk@localhost>"; got != want {
+		t.Errorf("author = %q, want %q", got, want)
+	}
+}
+
+func TestProjectPush_DoesNotCommitStagedUnrelatedChanges(t *testing.T) {
+	svc, home := testhelpers.TestHome(t)
+	repoDir := filepath.Join(home, "repos", "hermes")
+	testhelpers.MakeDir(t, repoDir)
+	initProjectRepo(t, repoDir)
+
+	ps := service.NewProjectService(svc)
+	if _, _, err := ps.ProjectAddPattern(context.Background(), repoDir, ".cursor/**"); err != nil {
+		t.Fatalf("add pattern: %v", err)
+	}
+	testhelpers.MakeFile(t, filepath.Join(repoDir, ".cursor", "rules.md"), "# rules\n")
+
+	// An unrelated change that is already staged, as a crashed earlier lnk
+	// command would leave it. The project commit must leave it staged and
+	// uncommitted.
+	unrelated := filepath.Join(svc.RepoPath(), "common.lnk", "unrelated.txt")
+	testhelpers.MakeFile(t, unrelated, "unrelated\n")
+	if out, err := exec.Command("git", "-C", svc.RepoPath(), "add", "common.lnk/unrelated.txt").CombinedOutput(); err != nil {
+		t.Fatalf("stage unrelated: %v\n%s", err, out)
+	}
+
+	if _, err := ps.ProjectPush(context.Background(), repoDir, false); err != nil {
+		t.Fatalf("ProjectPush: %v", err)
+	}
+
+	if out, err := exec.Command("git", "-C", svc.RepoPath(), "cat-file", "-e", "HEAD:common.lnk/unrelated.txt").CombinedOutput(); err == nil {
+		t.Errorf("staged unrelated change was swept into the project commit: %s", out)
+	}
+	out, err := exec.Command("git", "-C", svc.RepoPath(), "status", "--porcelain", "--", "common.lnk/unrelated.txt").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git status: %v\n%s", err, out)
+	}
+	if got, want := strings.TrimSpace(string(out)), "A  common.lnk/unrelated.txt"; got != want {
+		t.Errorf("unrelated change status = %q, want %q (still staged)", got, want)
+	}
+}
+
+func TestProjectSync_NoCommitWhenOnlyUnrelatedDirty(t *testing.T) {
+	svc, home := testhelpers.TestHome(t)
+	repoDir := filepath.Join(home, "repos", "hermes")
+	testhelpers.MakeDir(t, repoDir)
+	initProjectRepo(t, repoDir)
+
+	ps := service.NewProjectService(svc)
+	if _, _, err := ps.ProjectAddPattern(context.Background(), repoDir, ".cursor/**"); err != nil {
+		t.Fatalf("add pattern: %v", err)
+	}
+	testhelpers.MakeFile(t, filepath.Join(repoDir, ".cursor", "rules.md"), "# rules\n")
+	if _, err := ps.ProjectPush(context.Background(), repoDir, false); err != nil {
+		t.Fatalf("ProjectPush: %v", err)
+	}
+
+	// Dirty the tree outside projects/ with no project-side changes.
+	testhelpers.MakeFile(t, filepath.Join(svc.RepoPath(), "common.lnk", "unrelated.txt"), "unrelated\n")
+
+	before := len(testhelpers.GitLog(t, svc.RepoPath()))
+	if _, err := ps.ProjectSync(context.Background(), repoDir, false, false, false); err != nil {
+		t.Fatalf("ProjectSync: %v", err)
+	}
+	after := testhelpers.GitLog(t, svc.RepoPath())
+	if len(after) != before {
+		t.Errorf("expected no new commit for unrelated dirty tree, before=%d after=%d", before, len(after))
+	}
+}
+
 func TestProjectPush_FromSubdirStoresRootRelative(t *testing.T) {
 	svc, home := testhelpers.TestHome(t)
 	repoDir := filepath.Join(home, "repos", "hermes")

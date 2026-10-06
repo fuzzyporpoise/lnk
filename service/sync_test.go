@@ -103,6 +103,66 @@ func TestCommit_UninitializedRepo(t *testing.T) {
 	}
 }
 
+// ---------- Identity tests ----------
+
+// gitAuthor returns the "Name <email>" of the latest commit.
+func gitAuthor(t *testing.T, repoPath string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", repoPath, "log", "-1", "--format=%an <%ae>").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log: %v\n%s", err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// localGitConfig returns the repo-local value for key, or "" when unset.
+func localGitConfig(t *testing.T, repoPath, key string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", repoPath, "config", "--local", "--get", key).CombinedOutput()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestCommit_ManualUsesAmbientIdentity(t *testing.T) {
+	svc, _ := testhelpers.TestHome(t)
+	repoPath := svc.RepoPath()
+	testhelpers.ConfigureGitIdentity(t, repoPath)
+
+	testhelpers.MakeFile(t, filepath.Join(repoPath, "common.lnk", ".bashrc"), "# bashrc")
+
+	if err := svc.Commit(context.Background(), "manual"); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	if got, want := gitAuthor(t, repoPath), "Lnk Test <test@lnk>"; got != want {
+		t.Errorf("author = %q, want %q", got, want)
+	}
+}
+
+func TestAdd_AutomaticCommitUsesLnkIdentity(t *testing.T) {
+	svc, home := testhelpers.TestHome(t)
+	repoPath := svc.RepoPath()
+	// Give the repo a distinct ambient identity: automatic commits must ignore it.
+	testhelpers.ConfigureGitIdentity(t, repoPath)
+
+	homeFile := filepath.Join(home, ".bashrc")
+	testhelpers.MakeFile(t, homeFile, "# bashrc")
+
+	if err := svc.Add(context.Background(), "", []string{homeFile}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	if got, want := gitAuthor(t, repoPath), "Lnk User <lnk@localhost>"; got != want {
+		t.Errorf("author = %q, want %q", got, want)
+	}
+	// The automatic commit must leave the user's configured identity untouched.
+	if got := localGitConfig(t, repoPath, "user.name"); got != "Lnk Test" {
+		t.Errorf("local user.name = %q, want %q (automatic commit must not rewrite config)", got, "Lnk Test")
+	}
+}
+
 // ---------- Status tests ----------
 
 func TestStatus_CleanRepo_NoRemote(t *testing.T) {

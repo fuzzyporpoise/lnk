@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"go.fuzzyporpoise.dev/lnk/v2/internal/fs"
+	gitpkg "go.fuzzyporpoise.dev/lnk/v2/internal/git"
 	"go.fuzzyporpoise.dev/lnk/v2/internal/gitboundary"
 	"go.fuzzyporpoise.dev/lnk/v2/internal/lnkerror"
 	"go.fuzzyporpoise.dev/lnk/v2/internal/tracker"
@@ -48,20 +49,22 @@ func (r ScopeResult) Print(w io.Writer) error {
 
 // DoctorReport captures read-only or fix-mode doctor results.
 type DoctorReport struct {
-	Mode                    string
-	ScopeResults            []ScopeResult
-	Collisions              []OwnershipCollision
-	MarkerMissing           bool
-	MarkerFixed             bool
-	BrokenSymlinkFixSkipped bool
-	BrokenSymlinkFix        bool
-	EmptyScopes             []string // host scopes with no tracked items (scan mode)
-	PrunedScopes            []string // host scopes removed by --prune-empty --fix
-	Projects                []ProjectHealth
-	UnmarkedProjects        []string // storage under projects/ without a marker
-	EmptyProjects           []string // marked projects with no stored files
-	PrunedProjects          []string // empty project storage removed by --fix --prune-empty
-	ProjectIssues           []ProjectIssue
+	Mode                      string
+	ScopeResults              []ScopeResult
+	Collisions                []OwnershipCollision
+	MarkerMissing             bool
+	MarkerFixed               bool
+	BrokenSymlinkFixSkipped   bool
+	BrokenSymlinkFix          bool
+	EmptyScopes               []string // host scopes with no tracked items (scan mode)
+	PrunedScopes              []string // host scopes removed by --prune-empty --fix
+	Projects                  []ProjectHealth
+	UnmarkedProjects          []string // storage under projects/ without a marker
+	EmptyProjects             []string // marked projects with no stored files
+	PrunedProjects            []string // empty project storage removed by --fix --prune-empty
+	ProjectIssues             []ProjectIssue
+	LegacyCommitIdentity      bool // local git config carries lnk's own identity
+	LegacyCommitIdentityFixed bool // legacy identity removed by --fix
 }
 
 // ProjectIssue captures a project-scope health finding for doctor.
@@ -74,7 +77,7 @@ type ProjectIssue struct {
 
 // HasIssues reports whether the doctor found actionable issues.
 func (r DoctorReport) HasIssues() bool {
-	if r.MarkerMissing || len(r.Collisions) > 0 || len(r.EmptyScopes) > 0 {
+	if r.MarkerMissing || r.LegacyCommitIdentity || len(r.Collisions) > 0 || len(r.EmptyScopes) > 0 {
 		return true
 	}
 	if len(r.UnmarkedProjects) > 0 || len(r.EmptyProjects) > 0 || len(r.ProjectIssues) > 0 {
@@ -130,6 +133,12 @@ func (s *Service) doctorScan(ctx context.Context, host string, all bool) (Doctor
 			return DoctorReport{}, fmt.Errorf("checking marker file: %w", err)
 		}
 	}
+
+	legacyIdentity, err := s.hasLegacyCommitIdentity(ctx)
+	if err != nil {
+		return DoctorReport{}, err
+	}
+	report.LegacyCommitIdentity = legacyIdentity
 
 	collisions, err := s.scanCollisions()
 	if err != nil {
@@ -203,6 +212,13 @@ func (s *Service) doctorScan(ctx context.Context, host string, all bool) (Doctor
 // doctorFix applies fixes based on the report produced by doctorScan.
 func (s *Service) doctorFix(ctx context.Context, host string, all, pruneEmpty bool, report DoctorReport) (DoctorReport, error) {
 	var stagePaths []string
+
+	if report.LegacyCommitIdentity {
+		if err := s.git.UnsetLocalIdentity(ctx); err != nil {
+			return DoctorReport{}, err
+		}
+		report.LegacyCommitIdentityFixed = true
+	}
 
 	if report.MarkerMissing {
 		if err := s.writeMarkerFile(repoMarkerLegacy); err != nil {
@@ -291,7 +307,20 @@ func (s *Service) doctorFix(ctx context.Context, host string, all, pruneEmpty bo
 		return report, nil
 	}
 
-	return report, s.commit(ctx, "lnk: doctor fixes")
+	return report, s.commitAuto(ctx, "lnk: doctor fixes")
+}
+
+// hasLegacyCommitIdentity reports whether the repo's local git config carries
+// the exact identity older lnk versions wrote ("Lnk User <lnk@localhost>").
+// That entry shadows the user's real identity for their own commits, so doctor
+// surfaces it and --fix removes it. Only the exact pair is matched, so a user
+// who intentionally configured that name is not affected.
+func (s *Service) hasLegacyCommitIdentity(ctx context.Context) (bool, error) {
+	name, email, err := s.git.LocalIdentity(ctx)
+	if err != nil {
+		return false, err
+	}
+	return name == gitpkg.LnkCommitName && email == gitpkg.LnkCommitEmail, nil
 }
 
 // scanCrossScope finds tracked paths that are inside a git repo. These belong
