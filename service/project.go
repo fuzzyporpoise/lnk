@@ -1283,8 +1283,9 @@ type ProjectHealth struct {
 	Files int
 }
 
-// scanProjects returns the stored projects, top-level storage entries
-// without a marker, and marked projects with no files.
+// scanProjects returns the stored projects, top-level storage directories
+// without a marker, and marked projects with no files. Plain files at the
+// top of projects/ (e.g. a stray .DS_Store) are ignored, not reported.
 func (s *Service) scanProjects() (projects []ProjectHealth, unmarked, empty []string, err error) {
 	root := filepath.Join(s.repoPath, "projects")
 	if _, err := os.Stat(root); err != nil {
@@ -1335,11 +1336,11 @@ func (s *Service) scanProjects() (projects []ProjectHealth, unmarked, empty []st
 		return nil, nil, nil, err
 	}
 	for _, e := range entries {
-		name := e.Name()
+		// Non-directory entries (e.g. a stray .DS_Store) are not projects.
 		if !e.IsDir() {
-			unmarked = append(unmarked, name)
 			continue
 		}
+		name := e.Name()
 		hasMarker, err := dirContainsMarker(filepath.Join(root, name))
 		if err != nil {
 			return nil, nil, nil, err
