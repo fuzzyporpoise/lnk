@@ -2044,6 +2044,9 @@ func TestDoctor_FlagsUnmarkedAndEmptyProjects(t *testing.T) {
 	unmarkedDir := filepath.Join(projectsRoot, "legacy")
 	testhelpers.MakeFile(t, filepath.Join(unmarkedDir, "x.md"), "x\n")
 
+	// Ignored: a plain file at the top of projects/ is not a project.
+	testhelpers.MakeFile(t, filepath.Join(projectsRoot, ".DS_Store"), "junk\n")
+
 	// Empty: a marker but no stored files.
 	emptyDir := filepath.Join(projectsRoot, "emptied")
 	testhelpers.MakeDir(t, emptyDir)
